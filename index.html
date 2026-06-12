@@ -134,13 +134,13 @@ body{
   padding:34px 30px;border-radius:var(--r-lg);overflow:auto;transition:opacity .3s var(--ease)}
 .face .label{position:absolute;top:20px;left:24px;font-size:10px;font-weight:800;
   letter-spacing:.16em;text-transform:uppercase;opacity:.55}
-.front{background:linear-gradient(150deg,#eef0f5,#dfe3ec);color:#161a25;opacity:1}
-.front .hint{position:absolute;bottom:20px;font-size:13px;color:#7a8194;font-weight:500}
-.back{background:var(--grad);color:#fff;opacity:0;pointer-events:none}
-.card.flipped .front{opacity:0;pointer-events:none}
-.card.flipped .back{opacity:1;pointer-events:auto}
+.cf-front{background:linear-gradient(150deg,#eef0f5,#dfe3ec);color:#161a25;opacity:1}
+.cf-front .hint{position:absolute;bottom:20px;font-size:13px;color:#7a8194;font-weight:500}
+.cf-back{background:var(--grad);color:#fff;opacity:0;pointer-events:none}
+.card.flipped .cf-front{opacity:0;pointer-events:none}
+.card.flipped .cf-back{opacity:1;pointer-events:auto}
 .face .content{text-align:center;font-weight:600;line-height:1.35;font-size:clamp(22px,4.2vw,36px)}
-.back .content{font-weight:500;line-height:1.45;font-size:clamp(19px,3.6vw,30px)}
+.cf-back .content{font-weight:500;line-height:1.45;font-size:clamp(19px,3.6vw,30px)}
 .content strong{font-weight:800}
 
 /* ---------- Translation reader ---------- */
@@ -311,12 +311,12 @@ button:focus-visible,.item:focus-visible,.mode:focus-visible{outline:3px solid v
   <div class="progress"><i id="fc-progress"></i></div>
   <div class="card-wrap">
     <div class="card" id="fc-card" tabindex="0" role="button" aria-label="Flashcard, activate to flip">
-      <div class="face front">
+      <div class="face cf-front">
         <span class="label" id="fc-front-label">Term</span>
         <div class="content" id="fc-front" aria-live="polite"></div>
         <div class="hint">Tap or press Space to flip</div>
       </div>
-      <div class="face back">
+      <div class="face cf-back">
         <span class="label" id="fc-back-label">Definition</span>
         <div class="content" id="fc-back" aria-live="polite"></div>
       </div>
@@ -485,7 +485,6 @@ function buildYearBar(barId, listId, lessons){
   const bar = $(barId); bar.innerHTML = "";
   const years = [...new Set(lessons.map(lessonYear))].sort().reverse();
   if (filters[listId].year !== "All" && !years.includes(filters[listId].year)) filters[listId].year = "All";
-  if (years.length <= 1){ filters[listId].year = "All"; bar.style.display = "none"; return; }
   bar.style.display = "";
   ["All", ...years].forEach(y => {
     const b = document.createElement("button");
