@@ -98,7 +98,7 @@ body{
 
 /* ---------- Menu list ---------- */
 .menu{display:grid;gap:12px}
-.item{display:block;width:100%;text-align:left;cursor:pointer;font:inherit;color:var(--text);
+.item{position:relative;display:block;width:100%;text-align:left;cursor:pointer;font:inherit;color:var(--text);
   background:var(--surface);border:1px solid var(--border);border-left:4px solid transparent;
   border-radius:14px;padding:18px 20px;transition:background .15s,border-color .15s,transform .12s}
 .item:hover{background:var(--surface-2);transform:translateX(3px)}
@@ -228,6 +228,21 @@ button:focus-visible,.item:focus-visible,.mode:focus-visible{outline:3px solid v
   border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:5px 10px;transition:background .15s}
 .import-remove:hover{background:rgba(248,113,113,.12)}
 .import-remove.all{margin-top:12px;width:100%;padding:9px}
+.import-field{margin-bottom:14px}
+.import-field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.import-year{width:100%;max-width:220px;font:inherit;font-size:14px;color:var(--text);background:var(--bg);
+  border:1px solid var(--border-strong);border-radius:10px;padding:10px 12px}
+.import-year:focus{outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px rgba(99,102,241,.25)}
+
+/* ---------- School year ---------- */
+.year-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.year-chip{cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:var(--muted);background:var(--surface-2);
+  border:1px solid var(--border-strong);border-radius:999px;padding:7px 14px;transition:background .15s,color .15s,border-color .15s}
+.year-chip:hover{color:var(--text);background:var(--surface-3)}
+.year-chip.active{color:#fff;background:var(--indigo);border-color:var(--indigo)}
+.year-bar.violet .year-chip.active{background:var(--violet);border-color:var(--violet)}
+.lesson-year{position:absolute;top:14px;right:14px;font-size:11px;font-weight:600;color:var(--muted);
+  background:var(--surface-2);border:1px solid var(--border-strong);border-radius:999px;padding:3px 9px;letter-spacing:.02em}
 </style>
 </head>
 <body>
@@ -270,6 +285,7 @@ button:focus-visible,.item:focus-visible,.mode:focus-visible{outline:3px solid v
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
     <input id="study-search" type="search" placeholder="Search lessons…" autocomplete="off"></div>
+  <div id="study-years" class="year-bar"></div>
   <div id="study-lessons-list" class="menu indigo"></div>
 </section>
 
@@ -325,6 +341,7 @@ button:focus-visible,.item:focus-visible,.mode:focus-visible{outline:3px solid v
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
     <input id="trans-search" type="search" placeholder="Search lessons…" autocomplete="off"></div>
+  <div id="trans-years" class="year-bar violet"></div>
   <div id="trans-lessons-list" class="menu violet"></div>
 </section>
 
@@ -382,6 +399,10 @@ button:focus-visible,.item:focus-visible,.mode:focus-visible{outline:3px solid v
       <button id="copy-prompt" class="ghost-btn">Copy AI prompt</button>
       <button id="paste-sample" class="ghost-btn">Insert example</button>
     </div>
+    <div class="import-field">
+      <label for="import-year">School year for this lesson</label>
+      <input id="import-year" class="import-year" type="text" value="2025/2026" placeholder="e.g. 2025/2026">
+    </div>
     <textarea id="import-text" class="import-textarea" spellcheck="false"
       placeholder='{ "flashcards": { "lessonTitle": "...", "decks": [ ... ] }, "translation": { "lessonTitle": "...", "texts": [ ... ] } }'></textarea>
     <p id="import-error" class="import-error"></p>
@@ -433,20 +454,49 @@ function makeItem(title, detail){
   b._search = (title + " " + detail).toLowerCase();
   return b;
 }
+// ---- School year + list filtering -------------------------------
+const DEFAULT_YEAR = "2025/2026";
+const lessonYear = lesson => (lesson && lesson.year) || DEFAULT_YEAR;
+const filters = {
+  "study-lessons-list": { q: "", year: "All" },
+  "trans-lessons-list": { q: "", year: "All" },
+};
+function applyListFilter(listId){
+  const f = filters[listId];
+  let any = false;
+  [...$(listId).children].forEach(c => {
+    if (!c._search) return;
+    const okText = !f.q || c._search.includes(f.q);
+    const okYear = f.year === "All" || c._year === f.year;
+    const show = okText && okYear;
+    c.style.display = show ? "" : "none";
+    if (show) any = true;
+  });
+  let empty = $(listId).querySelector(".empty");
+  if (!any){
+    if (!empty){ empty = document.createElement("div"); empty.className = "empty"; empty.textContent = "No lessons match."; $(listId).appendChild(empty); }
+  } else if (empty) empty.remove();
+}
 function wireSearch(inputId, listId){
-  $(inputId).addEventListener("input", e => {
-    const q = e.target.value.trim().toLowerCase();
-    let any = false;
-    [...$(listId).children].forEach(c => {
-      if (!c._search) return;
-      const match = !q || c._search.includes(q);
-      c.style.display = match ? "" : "none";
-      if (match) any = true;
+  $(inputId).addEventListener("input", e => { filters[listId].q = e.target.value.trim().toLowerCase(); applyListFilter(listId); });
+}
+// Year chips appear only when more than one school year exists.
+function buildYearBar(barId, listId, lessons){
+  const bar = $(barId); bar.innerHTML = "";
+  const years = [...new Set(lessons.map(lessonYear))].sort().reverse();
+  if (filters[listId].year !== "All" && !years.includes(filters[listId].year)) filters[listId].year = "All";
+  if (years.length <= 1){ filters[listId].year = "All"; bar.style.display = "none"; return; }
+  bar.style.display = "";
+  ["All", ...years].forEach(y => {
+    const b = document.createElement("button");
+    b.className = "year-chip" + (y === filters[listId].year ? " active" : "");
+    b.textContent = y;
+    b.addEventListener("click", () => {
+      filters[listId].year = y;
+      [...bar.children].forEach(c => c.classList.toggle("active", c.textContent === y));
+      applyListFilter(listId);
     });
-    let empty = $(listId).querySelector(".empty");
-    if (!any){
-      if (!empty){ empty = document.createElement("div"); empty.className = "empty"; empty.textContent = "No lessons match your search."; $(listId).appendChild(empty); }
-    } else if (empty) empty.remove();
+    bar.appendChild(b);
   });
 }
 // Swipe: horizontal = onLeft/onRight; small move = onTap
@@ -472,10 +522,15 @@ function buildStudyLessons(){
   const list = $("study-lessons-list"); list.innerHTML = "";
   study_lessons.forEach(lesson => {
     const cards = lesson.deckIds.reduce((n,id) => n + (study_allDecksMap[id]?.cards.length || 0), 0);
+    const year = lessonYear(lesson);
     const b = makeItem(lesson.lessonTitle, lesson.lessonSubtitle + " · " + cards + " cards");
+    b._year = year; b._search += " " + year.toLowerCase();
+    const tag = document.createElement("span"); tag.className = "lesson-year"; tag.textContent = year; b.appendChild(tag);
     b.addEventListener("click", () => openStudyDecks(lesson));
     list.appendChild(b);
   });
+  buildYearBar("study-years", "study-lessons-list", study_lessons);
+  applyListFilter("study-lessons-list");
 }
 function openStudyDecks(lesson){
   $("study-decks-title").textContent = lesson.lessonTitle;
@@ -530,10 +585,15 @@ function buildTransLessons(){
   const list = $("trans-lessons-list"); list.innerHTML = "";
   translation_allLessons.forEach((lesson, li) => {
     const segs = lesson.texts.reduce((n,t) => n + t.pairs.length, 0);
+    const year = lessonYear(lesson);
     const b = makeItem(lesson.lessonTitle, lesson.lessonSubtitle + " · " + segs + " segments");
+    b._year = year; b._search += " " + year.toLowerCase();
+    const tag = document.createElement("span"); tag.className = "lesson-year"; tag.textContent = year; b.appendChild(tag);
     b.addEventListener("click", () => openTransTexts(lesson, li));
     list.appendChild(b);
   });
+  buildYearBar("trans-years", "trans-lessons-list", translation_allLessons);
+  applyListFilter("trans-lessons-list");
 }
 function openTransTexts(lesson, li){
   $("trans-texts-title").textContent = lesson.lessonTitle;
@@ -652,6 +712,8 @@ function getImports(){
 function setImports(arr){ try { localStorage.setItem(IMPORT_KEY, JSON.stringify(arr)); } catch {} }
 
 function applyBundle(bundle, i){
+  const fy = (bundle.flashcards && bundle.flashcards.year) || bundle.year || DEFAULT_YEAR;
+  const ty = (bundle.translation && bundle.translation.year) || bundle.year || DEFAULT_YEAR;
   if (bundle.flashcards && Array.isArray(bundle.flashcards.decks)){
     const fc = bundle.flashcards, deckIds = [];
     fc.decks.forEach((d, di) => {
@@ -659,11 +721,11 @@ function applyBundle(bundle, i){
       study_allDecksMap[id] = { title: d.title || "Deck", reversible: !!d.reversible, cards: d.cards || [] };
       deckIds.push(id);
     });
-    study_lessons.push({ lessonTitle: fc.lessonTitle || "Imported lesson", lessonSubtitle: fc.lessonSubtitle || "Imported", deckIds });
+    study_lessons.push({ lessonTitle: fc.lessonTitle || "Imported lesson", lessonSubtitle: fc.lessonSubtitle || "Imported", deckIds, year: fy });
   }
   if (bundle.translation && Array.isArray(bundle.translation.texts)){
     const tr = bundle.translation;
-    translation_allLessons.push({ lessonTitle: tr.lessonTitle || "Imported lesson", lessonSubtitle: tr.lessonSubtitle || "Imported", texts: tr.texts });
+    translation_allLessons.push({ lessonTitle: tr.lessonTitle || "Imported lesson", lessonSubtitle: tr.lessonSubtitle || "Imported", texts: tr.texts, year: ty });
   }
 }
 
@@ -730,6 +792,12 @@ function doImport(){
   catch (e){ err.textContent = "Invalid JSON — " + e.message; return; }
   const bundles = Array.isArray(data) ? data : [data];
   for (const b of bundles){ const v = validateBundle(b); if (v){ err.textContent = v; return; } }
+  // Tag each lesson with the chosen school year (unless the JSON already set one).
+  const yearVal = ($("import-year").value || "").trim() || DEFAULT_YEAR;
+  bundles.forEach(b => {
+    const hasYear = b.year || (b.flashcards && b.flashcards.year) || (b.translation && b.translation.year);
+    if (!hasYear) b.year = yearVal;
+  });
   const arr = getImports(); bundles.forEach(b => arr.push(b)); setImports(arr);
   refreshAll();
   $("import-text").value = "";
@@ -740,6 +808,7 @@ function doImport(){
 const AI_PROMPT = `You are a formatter for the "Ultimate English" study app. Convert the English lesson I give you into ONE JSON object using EXACTLY this schema. Output ONLY valid JSON — no markdown, no comments.
 
 {
+  "year": "2025/2026",
   "flashcards": {
     "lessonTitle": "Lesson 29",
     "lessonSubtitle": "Vocabulary & idioms",
@@ -768,6 +837,7 @@ const AI_PROMPT = `You are a formatter for the "Ultimate English" study app. Con
 }
 
 Rules:
+- Optionally set a top-level "year" (school year like "2025/2026") if the lesson shows it; otherwise omit it and the app uses the School year field.
 - Use "flashcards" for vocabulary / idioms / grammar (term = English, definition = Polish + short English meaning in parentheses).
 - Use "translation" for full sentences or dialogues (source = Polish, translation = English).
 - Include only the key(s) the lesson actually needs.
@@ -779,6 +849,7 @@ LESSON:
 <paste your lesson here>`;
 
 const SAMPLE_JSON = JSON.stringify({
+  year: "2025/2026",
   flashcards: { lessonTitle: "Lesson 29", lessonSubtitle: "Vocabulary", decks: [
     { title: "Vocabulary", reversible: true, cards: [
       { term: "to commute", definition: "Dojeżdżać do pracy. (to travel to work)" },
