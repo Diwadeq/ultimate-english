@@ -245,6 +245,26 @@ button:focus-visible,.item:focus-visible,.mode:focus-visible{outline:3px solid v
 .year-bar.violet .year-chip.active{background:var(--violet);border-color:var(--violet)}
 .lesson-year{position:absolute;top:14px;right:14px;font-size:11px;font-weight:600;color:var(--muted);
   background:var(--surface-2);border:1px solid var(--border-strong);border-radius:999px;padding:3px 9px;letter-spacing:.02em}
+
+/* ---------- Import: seamless flow ---------- */
+.modal-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.step{margin-bottom:18px}
+.step-h{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:var(--text);margin-bottom:11px}
+.step-n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;
+  border-radius:999px;background:var(--grad);color:#fff;font-size:12px;font-weight:800}
+.hint-line{font-size:12.5px;color:var(--faint);line-height:1.5;margin-top:9px}
+.import-ok{color:#86efac;font-size:13px;margin-top:8px;line-height:1.4}
+.import-textarea.short{min-height:120px}
+.import-year.wide{max-width:none}
+.link-btn{display:inline-flex;align-items:center;font:inherit;font-size:13px;font-weight:600;color:var(--indigo-300);text-decoration:none;padding:9px 4px}
+.link-btn:hover{text-decoration:underline}
+.adv{margin:4px 0 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.adv>summary{cursor:pointer;list-style:none;padding:13px 14px;font-size:13px;font-weight:600;color:var(--indigo-300)}
+.adv>summary::-webkit-details-marker{display:none}
+.adv>summary::before{content:"▸";color:var(--faint);margin-right:8px;display:inline-block}
+.adv[open]>summary::before{content:"▾"}
+.adv-body{padding:2px 14px 16px}
+.backup-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;padding-top:16px;border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -388,29 +408,63 @@ button:focus-visible,.item:focus-visible,.mode:focus-visible{outline:3px solid v
 <div id="import-modal" class="modal-overlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
     <div class="modal-head">
-      <h2 id="import-title">Import a lesson</h2>
+      <h2 id="import-title">Add a lesson</h2>
       <button id="close-import" class="modal-close" aria-label="Close">&times;</button>
     </div>
     <p class="modal-desc">
-      Paste lesson JSON below and press <strong>Load lesson</strong>. Don't have JSON yet?
-      Press <strong>Copy AI prompt</strong>, paste it into any AI together with your raw lesson,
-      and paste back the JSON it returns. Imported lessons are saved <strong>only in this browser</strong> —
-      they are never uploaded.
+      Turn any lesson into flashcards + translation practice with Gemini, then add it here.
+      New lessons are <strong>added</strong> to your existing ones (nothing is overwritten) and saved
+      <strong>only in this browser</strong>.
     </p>
-    <div class="modal-actions-top">
-      <button id="copy-prompt" class="ghost-btn">Copy AI prompt</button>
-      <button id="paste-sample" class="ghost-btn">Insert example</button>
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">1</span> Generate it with Gemini</div>
+      <div class="modal-actions-top">
+        <button id="open-gemini" class="ghost-btn">Open Gemini + copy prompt</button>
+        <button id="copy-prompt" class="ghost-btn">Copy prompt only</button>
+        <button id="paste-sample" class="ghost-btn">See example</button>
+      </div>
+      <p class="hint-line">Paste the prompt into Gemini with your lesson, then copy its whole reply.</p>
     </div>
-    <div class="import-field">
-      <label for="import-year">School year for this lesson</label>
-      <input id="import-year" class="import-year" type="text" value="2025/2026" placeholder="e.g. 2025/2026">
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">2</span> Paste the reply &amp; set the year</div>
+      <div class="import-field">
+        <label for="import-year">School year</label>
+        <input id="import-year" class="import-year" type="text" value="2025/2026" placeholder="e.g. 2025/2026">
+      </div>
+      <textarea id="import-text" class="import-textarea" spellcheck="false"
+        placeholder="Paste here — JSON or Gemini's whole reply. Code fences (```) and extra text are fine, I'll clean it up."></textarea>
+      <p id="import-error" class="import-error"></p>
+      <p id="import-ok" class="import-ok"></p>
+      <div class="modal-actions">
+        <button id="do-import" class="primary-btn">Add lesson</button>
+      </div>
     </div>
-    <textarea id="import-text" class="import-textarea" spellcheck="false"
-      placeholder='{ "flashcards": { "lessonTitle": "...", "decks": [ ... ] }, "translation": { "lessonTitle": "...", "texts": [ ... ] } }'></textarea>
-    <p id="import-error" class="import-error"></p>
-    <div class="modal-actions">
-      <button id="do-import" class="primary-btn">Load lesson</button>
+
+    <details class="adv">
+      <summary>Advanced — auto-format with your own Gemini key (one paste, no copying back)</summary>
+      <div class="adv-body">
+        <p class="hint-line">Paste a free Gemini API key once (stored only in this browser). Then paste a raw lesson and it's formatted &amp; added automatically.</p>
+        <div class="import-field">
+          <label for="gemini-key">Gemini API key</label>
+          <input id="gemini-key" class="import-year wide" type="password" placeholder="AIza… (saved on this device only)" autocomplete="off">
+        </div>
+        <textarea id="raw-lesson" class="import-textarea short" spellcheck="false"
+          placeholder="Paste a raw lesson (plain text) here, then press Generate &amp; add."></textarea>
+        <div class="modal-actions">
+          <button id="gemini-go" class="primary-btn">Generate &amp; add</button>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="link-btn">Get a free key →</a>
+        </div>
+      </div>
+    </details>
+
+    <div class="backup-row">
+      <button id="export-lessons" class="ghost-btn">↓ Export lessons file</button>
+      <button id="import-file-btn" class="ghost-btn">↑ Import from file</button>
+      <input id="import-file" type="file" accept="application/json,.json" hidden>
     </div>
+
     <div id="import-list" class="import-list"></div>
   </div>
 </div>
@@ -785,26 +839,60 @@ function validateBundle(b){
   return null;
 }
 
-function doImport(){
-  const err = $("import-error"); err.textContent = "";
-  const raw = $("import-text").value.trim();
-  if (!raw){ err.textContent = "Paste some lesson JSON first."; return; }
+// Pull clean JSON out of whatever the user pasted: strips ``` fences, BOM,
+// surrounding prose, and trailing commas. Makes Gemini's reply "just work".
+function extractJSON(raw){
+  let s = (raw || "").replace(/^﻿/, "").trim();
+  if (!s) return s;
+  const fence = s.match(/```(?:json|javascript|js)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1].trim();
+  const starts = [s.indexOf("{"), s.indexOf("[")].filter(i => i >= 0);
+  if (starts.length){
+    const start = Math.min(...starts);
+    const end = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+    if (end > start) s = s.slice(start, end + 1);
+  }
+  s = s.replace(/,(\s*[}\]])/g, "$1"); // trailing commas
+  return s;
+}
+function parseLessons(raw){
+  const cleaned = extractJSON(raw);
+  if (!cleaned) throw new Error("Nothing to read — paste the lesson first.");
   let data;
-  try { data = JSON.parse(raw); }
-  catch (e){ err.textContent = "Invalid JSON — " + e.message; return; }
+  try { data = JSON.parse(cleaned); }
+  catch (e){ throw new Error("Couldn't read that as a lesson — paste Gemini's full reply. (" + e.message + ")"); }
   const bundles = Array.isArray(data) ? data : [data];
-  for (const b of bundles){ const v = validateBundle(b); if (v){ err.textContent = v; return; } }
-  // Tag each lesson with the chosen school year (unless the JSON already set one).
-  const yearVal = ($("import-year").value || "").trim() || DEFAULT_YEAR;
+  if (!bundles.length) throw new Error("No lesson found in what you pasted.");
+  for (const b of bundles){ const v = validateBundle(b); if (v) throw new Error(v); }
+  return bundles;
+}
+// Add bundles to storage. Additive + dedupe (never overwrites, skips exact dupes).
+function addBundles(bundles, yearVal){
   bundles.forEach(b => {
     const hasYear = b.year || (b.flashcards && b.flashcards.year) || (b.translation && b.translation.year);
-    if (!hasYear) b.year = yearVal;
+    if (!hasYear) b.year = (yearVal || DEFAULT_YEAR);
   });
-  const arr = getImports(); bundles.forEach(b => arr.push(b)); setImports(arr);
+  const arr = getImports();
+  const seen = new Set(arr.map(x => JSON.stringify(x)));
+  let added = 0;
+  bundles.forEach(b => { const k = JSON.stringify(b); if (!seen.has(k)){ arr.push(b); seen.add(k); added++; } });
+  setImports(arr);
   refreshAll();
+  return added;
+}
+function targetScreen(bundles){
+  return bundles.some(b => b.flashcards) ? "screen-study-lessons" : "screen-trans-lessons";
+}
+function doImport(){
+  $("import-error").textContent = ""; $("import-ok").textContent = "";
+  let bundles;
+  try { bundles = parseLessons($("import-text").value); }
+  catch (e){ $("import-error").textContent = e.message; return; }
+  const added = addBundles(bundles, ($("import-year").value || "").trim());
+  if (added === 0){ $("import-ok").textContent = "Already added — nothing new."; renderImportList(); return; }
   $("import-text").value = "";
   closeImport();
-  show("screen-study-lessons");
+  show(targetScreen(bundles));
 }
 
 const AI_PROMPT = `You are a formatter for the "Ultimate English" study app. Convert the English lesson I give you into ONE JSON object using EXACTLY this schema. Output ONLY valid JSON — no markdown, no comments.
@@ -865,7 +953,7 @@ const SAMPLE_JSON = JSON.stringify({
   ]}
 }, null, 2);
 
-function openImport(){ $("import-modal").classList.add("open"); $("import-error").textContent = ""; renderImportList(); $("import-text").focus(); }
+function openImport(){ $("import-modal").classList.add("open"); $("import-error").textContent = ""; $("import-ok").textContent = ""; renderImportList(); $("import-text").focus(); }
 function closeImport(){ $("import-modal").classList.remove("open"); $("import-error").textContent = ""; }
 
 $("open-import").addEventListener("click", openImport);
@@ -873,12 +961,86 @@ $("close-import").addEventListener("click", closeImport);
 $("import-modal").addEventListener("click", e => { if (e.target.id === "import-modal") closeImport(); });
 $("do-import").addEventListener("click", doImport);
 $("paste-sample").addEventListener("click", () => { $("import-text").value = SAMPLE_JSON; $("import-text").focus(); });
+
+async function copyPrompt(){
+  try { await navigator.clipboard.writeText(AI_PROMPT); return true; }
+  catch { const t = $("import-text"); t.value = AI_PROMPT; t.select(); return false; }
+}
 $("copy-prompt").addEventListener("click", async () => {
   const btn = $("copy-prompt"), label = btn.textContent;
-  try { await navigator.clipboard.writeText(AI_PROMPT); }
-  catch { const t = $("import-text"); t.value = AI_PROMPT; t.select(); }
+  await copyPrompt();
   btn.textContent = "Copied!"; setTimeout(() => { btn.textContent = label; }, 1500);
 });
+$("open-gemini").addEventListener("click", async () => {
+  await copyPrompt();
+  window.open("https://gemini.google.com/app", "_blank", "noopener");
+  const btn = $("open-gemini"), label = btn.textContent;
+  btn.textContent = "Prompt copied — paste in Gemini"; setTimeout(() => { btn.textContent = label; }, 2800);
+});
+
+// ---- Export / import a lessons file (move between devices) ----
+$("export-lessons").addEventListener("click", () => {
+  const data = getImports();
+  if (!data.length){ $("import-error").textContent = "No imported lessons to export yet."; return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = "ultimate-english-lessons.json";
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+$("import-file-btn").addEventListener("click", () => $("import-file").click());
+$("import-file").addEventListener("change", e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    $("import-error").textContent = ""; $("import-ok").textContent = "";
+    try {
+      const bundles = parseLessons(reader.result);
+      const added = addBundles(bundles, "");
+      $("import-ok").textContent = added ? `Imported ${added} lesson${added > 1 ? "s" : ""} from file.` : "Those lessons were already added.";
+      renderImportList();
+    } catch (err){ $("import-error").textContent = "Couldn't read that file — " + err.message; }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+// ---- Optional: format a raw lesson directly via the Gemini API ----
+const GKEY = "ultimate-english.geminiKey";
+try { $("gemini-key").value = localStorage.getItem(GKEY) || ""; } catch {}
+$("gemini-key").addEventListener("change", e => { try { localStorage.setItem(GKEY, e.target.value.trim()); } catch {} });
+async function geminiGenerate(){
+  $("import-error").textContent = ""; $("import-ok").textContent = "";
+  const key = ($("gemini-key").value || "").trim();
+  const lesson = ($("raw-lesson").value || "").trim();
+  if (!key){ $("import-error").textContent = "Paste your Gemini API key first, or use the paste method above."; return; }
+  if (!lesson){ $("import-error").textContent = "Paste a raw lesson in the box first."; return; }
+  try { localStorage.setItem(GKEY, key); } catch {}
+  const btn = $("gemini-go"), label = btn.textContent; btn.disabled = true; btn.textContent = "Generating…";
+  const prompt = AI_PROMPT.replace("<paste your lesson here>", lesson);
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+  try {
+    let text = "", lastErr = "";
+    for (const model of models){
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2 } })
+      });
+      if (res.ok){ const j = await res.json(); text = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join(""); break; }
+      const body = await res.text(); lastErr = res.status + " " + body.slice(0, 160);
+      if (res.status !== 404) break;
+    }
+    if (!text) throw new Error(lastErr || "Empty response.");
+    const bundles = parseLessons(text);
+    const added = addBundles(bundles, ($("import-year").value || "").trim());
+    $("raw-lesson").value = "";
+    btn.disabled = false; btn.textContent = label;
+    closeImport(); show(targetScreen(bundles));
+  } catch (e){
+    btn.disabled = false; btn.textContent = label;
+    $("import-error").textContent = "Gemini error: " + e.message + " — you can still paste the JSON manually above.";
+  }
+}
+$("gemini-go").addEventListener("click", geminiGenerate);
 
 // ---- Init --------------------------------------------------------
 $(transDir === "ENtoPL" ? "dir-en" : "dir-pl").checked = true;
